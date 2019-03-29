@@ -1,21 +1,35 @@
 #!/usr/local/bin/ruby
 
-TARGET_FILE = "./target.rb"
-DICTIONARY_PATH = "./en_dic.txt"
+require 'logger'
+
+DICTIONARY_PATH = "./dictionaries/en_dic.txt"
 WHITE_LIST_PATH = "./white_list/rails.txt"
 KEYWORDS_PATH = "./programming_keywords/rails.txt"
 WRONG_WORDS_PATH = "./wrong_word_list.txt"
+LOG_PATH = "./log/log"
 
-def update_key_word_list(new_key_words)
+OPTIONS = {
+    :update => '--update',
+    :type => '--type'
+}
+
+FILETYPE = {
+    :ruby => 'rb',
+    :javascript => 'js',
+    :typescript => 'ts'
+}
+
+def update_keyword_file(keywords)
   File.open(KEYWORDS_PATH, 'a') do |f|
-    new_key_words.each { |word| f.puts(word) }
+      keywords.sort.each { |word| f.puts(word) }
   end
+  @log.info "Updated now words to #{KEYWORDS_PATH}!"
 end
 
-def spell_check(file_path, keywords, new_key_words, white_list, cached_words, english_dictionary_words)
+def spell_check(file_path, keywords, white_list, cached_words, en_dict)
   found_counter = 0
   line_counter = 0
-  puts "\n\n==> Checking file: #{file_path}"
+  @log.info "\n\n==> Checking file: #{file_path}"
   File.readlines(file_path).each do |line|
     line.chomp!
     line_counter += 1
@@ -24,39 +38,68 @@ def spell_check(file_path, keywords, new_key_words, white_list, cached_words, en
       next if keywords.include? (word)
       next if white_list.include? (word)
       next if cached_words.include? (word)
-      if english_dictionary_words.include? (word)
-        # puts "Saved #{word} into cached!"
+      if en_dict.include? (word)
         cached_words.push(word)
         next
       else
         found_counter += 1
-        new_key_words.push(word)
-        puts "Found wrong word in #{line_counter}: #{original_word}"
+        keywords.push(word) if @update_white_list_flag
+        @log.info "Found wrong word in #{line_counter}: #{original_word}"
       end
     end
   end
   found_counter
 end
 
-def show_help()
-  puts "Wrong params!\n"
-  puts "Usage: ruby spellcheck.rb [file/directory name]\n\n"
+def show_help_and_exit()
+  puts "SOURCE CODE SPELL CHECK TOOL\n"
+  puts "Usage: ruby spellcheck.rb [OPTION] [FILE NAME/ DIRECTORY NAME]\n"
+  puts "Options:\n"
+  puts "#{OPTIONS[:update]}: Update/Register programming keywords\n"
+  puts "#{OPTIONS[:type]}:Specify the target file extension\n"
+  puts "       Default file extension is ruby\n"
   exit
+end
+
+def load_libraries()
+  en_dict = File.readlines(DICTIONARY_PATH).each { |l| l.chomp! }
+  keywords = File.readlines(KEYWORDS_PATH).each { |l| l.chomp! }
+  white_list = File.readlines(WHITE_LIST_PATH).each { |l| l.chomp! }
+  return en_dict, keywords, white_list
 end
 
 def main()
   found_counter = 0
-  show_help if ARGV.size == 0
-  target_files = File.file?(ARGV.first) ? Dir[ARGV.first] : Dir["#{ARGV.first}/*"]
-  english_dictionary_words = File.readlines(DICTIONARY_PATH).each { |l| l.chomp! }
-  keywords = File.readlines(KEYWORDS_PATH).each { |l| l.chomp! }
-  white_list = File.readlines(WHITE_LIST_PATH).each { |l| l.chomp! }
-  cached_words = []
-  new_key_words = []
-  target_files.each do |file|
-    found_counter += spell_check(file, keywords, new_key_words, white_list, cached_words, english_dictionary_words)
+  @update_white_list_flag = false
+  @file_type = FILETYPE[:ruby]
+  @log = Logger.new(LOG_PATH)
+
+  case ARGV.size
+  when 1
+      target = ARGV.first
+  when 2
+      show_help_and_exit if ARGV.first != OPTIONS[:update]
+      target = ARGV.last
+      @update_white_list_flag = true
+  else
+      show_help_and_exit
   end
-  puts "Found #{found_counter} wrong words!"
-  update_key_word_list(new_key_words)
+
+  if File.file?(target)
+      target_files = Dir[target]
+  elsif File.directory?(target)
+      target_files = Dir::glob("#{target}/**/*.#{@file_type}")
+  else
+      show_help_and_exit
+  end
+
+  en_dict, keywords, white_list = load_libraries
+  cached_words = []
+  target_files.each do |file|
+    found_counter += spell_check(file, keywords, white_list, cached_words, en_dict)
+  end
+  update_keyword_file(keywords) if @update_white_list_flag
+  puts "Found #{found_counter} wrong words!\n"
+  puts "Open file #{LOG_PATH} to confirm!\n"
 end
 main
