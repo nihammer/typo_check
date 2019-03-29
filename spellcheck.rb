@@ -7,6 +7,7 @@ WHITE_LIST_PATH = "./white_list/rails.txt"
 KEYWORDS_PATH = "./programming_keywords/rails.txt"
 WRONG_WORDS_PATH = "./wrong_word_list.txt"
 LOG_PATH = "./log/log"
+PROGRESS_BAR_MAX_WIDTH = 100
 
 OPTIONS = {
     :update => '--update',
@@ -18,6 +19,14 @@ FILETYPE = {
     :javascript => 'js',
     :typescript => 'ts'
 }
+
+def progress_bar(i, max = 100)
+  i = max if i > max
+  percent = i * 100.0 / max
+  bar_length = i * PROGRESS_BAR_MAX_WIDTH.to_f / max
+  bar_str = ('#' * bar_length).ljust(PROGRESS_BAR_MAX_WIDTH)
+  print "\r#{bar_str} #{'%0.1f' % percent}%"
+end
 
 def update_keyword_file(keywords)
   File.open(KEYWORDS_PATH, 'a') do |f|
@@ -95,8 +104,12 @@ def main()
 
   en_dict, keywords, white_list = load_libraries
   cached_words = []
+  checked_file_count = 0
+  number_of_target_file = target_files.size
   target_files.each do |file|
     found_counter += spell_check(file, keywords, white_list, cached_words, en_dict)
+    checked_file_count += 1
+    progress_bar(checked_file_count, number_of_target_file)
   end
   update_keyword_file(keywords) if @update_white_list_flag
   puts "Found #{found_counter} wrong words!\n"
