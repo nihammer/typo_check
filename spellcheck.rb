@@ -2,7 +2,9 @@
 
 require 'logger'
 
-DICTIONARY_PATH = "./dictionaries/en_dic.txt"
+# https://github.com/dwyl/english-words
+DICTIONARY_PATH = "./dictionaries/words_alpha.txt"
+
 WHITE_LIST_PATH = "./white_list/rails.txt"
 KEYWORDS_PATH = "./programming_keywords/rails.txt"
 WRONG_WORDS_PATH = "./wrong_word_list.txt"
@@ -102,6 +104,8 @@ def main()
       show_help_and_exit
   end
 
+  # Start
+  puts "Running...\n"
   en_dict, keywords, white_list = load_libraries
   cached_words = []
   checked_file_count = 0
@@ -112,7 +116,7 @@ def main()
     progress_bar(checked_file_count, number_of_target_file)
   end
   update_keyword_file(keywords) if @update_white_list_flag
-  puts "Found #{found_counter} wrong words!\n"
+  puts "\nFound #{found_counter} wrong words!\n"
   puts "Open file #{LOG_PATH} to confirm!\n"
 end
 main
