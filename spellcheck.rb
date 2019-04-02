@@ -5,9 +5,10 @@ require 'logger'
 # https://github.com/dwyl/english-words
 DICTIONARY_PATH = "./dictionaries/words_alpha.txt"
 
-WHITE_LIST_PATH = "./white_list/rails.txt"
-KEYWORDS_PATH = "./programming_keywords/rails.txt"
-WRONG_WORDS_PATH = "./wrong_word_list.txt"
+WHITE_LIST_PATH = "./white_list/words.txt"
+PRIVATE_NAMES_PATH = "./private_names/names.txt"
+COMPUTER_VOCABULARY_WORDS_PATH = "./computer_vocabulary/words.txt"
+PROG_KEYWORDS_PATH = "./programming_keywords/rails.txt"
 LOG_PATH = "./log/log"
 PROGRESS_BAR_MAX_WIDTH = 100
 
@@ -31,13 +32,13 @@ def progress_bar(i, max = 100)
 end
 
 def update_keyword_file(keywords)
-  File.open(KEYWORDS_PATH, 'a') do |f|
+  File.open(PROG_KEYWORDS_PATH, 'a') do |f|
       keywords.sort.each { |word| f.puts(word) }
   end
-  @log.info "Updated now words to #{KEYWORDS_PATH}!"
+  @log.info "Updated now words to #{PROG_KEYWORDS_PATH}!"
 end
 
-def spell_check(file_path, keywords, white_list, cached_words, en_dict)
+def spell_check(file_path, keywords, cv_words, private_names, white_list, cached_words, en_dict)
   found_counter = 0
   line_counter = 0
   @log.info "\n\n==> Checking file: #{file_path}"
@@ -46,9 +47,11 @@ def spell_check(file_path, keywords, white_list, cached_words, en_dict)
     line_counter += 1
     line.scan(/([A-Z][a-z]+|[a-zA-Z]{2,})/).flatten.each do |original_word|
       word = original_word.downcase
-      next if keywords.include? (word)
-      next if white_list.include? (word)
       next if cached_words.include? (word)
+      next if keywords.include? (word)
+      next if cv_words.include? (word)
+      next if private_names.include? (word)
+      next if white_list.include? (word)
       if en_dict.include? (word)
         cached_words.push(word)
         next
@@ -74,9 +77,11 @@ end
 
 def load_libraries()
   en_dict = File.readlines(DICTIONARY_PATH).each { |l| l.chomp! }
-  keywords = File.readlines(KEYWORDS_PATH).each { |l| l.chomp! }
+  keywords = File.readlines(PROG_KEYWORDS_PATH).each { |l| l.chomp! }
+  cv_words = File.readlines(COMPUTER_VOCABULARY_WORDS_PATH).each { |l| l.chomp! }
+  private_names = File.readlines(PRIVATE_NAMES_PATH).each { |l| l.chomp! }
   white_list = File.readlines(WHITE_LIST_PATH).each { |l| l.chomp! }
-  return en_dict, keywords, white_list
+  [en_dict, keywords, cv_words, private_names, white_list]
 end
 
 def main()
@@ -106,12 +111,12 @@ def main()
 
   # Start
   puts "Running...\n"
-  en_dict, keywords, white_list = load_libraries
+  en_dict, keywords, cv_words, private_names, white_list = load_libraries
   cached_words = []
   checked_file_count = 0
   number_of_target_file = target_files.size
   target_files.each do |file|
-    found_counter += spell_check(file, keywords, white_list, cached_words, en_dict)
+    found_counter += spell_check(file, keywords, cv_words, private_names, white_list, cached_words, en_dict)
     checked_file_count += 1
     progress_bar(checked_file_count, number_of_target_file)
   end
