@@ -7,20 +7,29 @@ DICTIONARY_PATH = "./dictionaries/words_alpha.txt"
 
 WHITE_LIST_PATH = "./white_list/words.txt"
 PRIVATE_NAMES_PATH = "./private_names/names.txt"
-COMPUTER_VOCABULARY_WORDS_PATH = "./computer_vocabulary/words.txt"
+COMPUTER_VOCABULARY_PATH = "./computer_vocabulary"
 PROG_KEYWORDS_PATH = "./programming_keywords/rails.txt"
 LOG_PATH = "./log/log"
 PROGRESS_BAR_MAX_WIDTH = 100
 
 OPTIONS = {
-    :update => '--update',
-    :type => '--type'
+  :update => '--update',
+  :type => '--type'
 }
 
 FILETYPE = {
-    :ruby => 'rb',
-    :javascript => 'js',
-    :typescript => 'ts'
+  :ruby => 'rb',
+  :javascript => 'js',
+  :typescript => 'ts',
+  :php => 'php',
+  :html => 'html',
+  :plaintext => 'txt'
+}
+
+ERROR_MESSAGE = {
+  :filetype_not_exist => 'Filetype does not exist!',
+  :param_not_exist => 'Parameter does not exist: ',
+  :no_file => 'There is no file to scan!'
 }
 
 def progress_bar(i, max = 100)
@@ -33,7 +42,7 @@ end
 
 def update_keyword_file(keywords)
   File.open(PROG_KEYWORDS_PATH, 'a') do |f|
-      keywords.sort.each { |word| f.puts(word) }
+    keywords.sort.each { |word| f.puts(word) }
   end
   @log.info "Updated now words to #{PROG_KEYWORDS_PATH}!"
 end
@@ -65,49 +74,83 @@ def spell_check(file_path, keywords, cv_words, private_names, white_list, cached
   found_counter
 end
 
-def show_help_and_exit()
+def show_help_and_exit(message)
+  puts "\nError: #{message}\n\n\n" if message
   puts "SOURCE CODE SPELL CHECK TOOL\n"
   puts "Usage: ruby spellcheck.rb [OPTION] [FILE NAME/ DIRECTORY NAME]\n"
   puts "Options:\n"
   puts "#{OPTIONS[:update]}: Update/Register programming keywords\n"
-  puts "#{OPTIONS[:type]}:Specify the target file extension\n"
+  puts "#{OPTIONS[:type]}: Specify the target file extension\n"
   puts "       Default file extension is ruby\n"
+  puts "  Filetype list:\n"
+  FILETYPE.keys.each { |filetype| puts "    #{filetype}\n" }
+  puts "\n"
   exit
 end
 
-def load_libraries()
-  en_dict = File.readlines(DICTIONARY_PATH).each { |l| l.chomp! }
-  keywords = File.readlines(PROG_KEYWORDS_PATH).each { |l| l.chomp! }
-  cv_words = File.readlines(COMPUTER_VOCABULARY_WORDS_PATH).each { |l| l.chomp! }
-  private_names = File.readlines(PRIVATE_NAMES_PATH).each { |l| l.chomp! }
-  white_list = File.readlines(WHITE_LIST_PATH).each { |l| l.chomp! }
+def load_data_from_files(path, file_type=FILETYPE[:plaintext])
+  data = []
+  if File.file?(path)
+    data = File.readlines(path).each { |l| l.chomp! }
+  elsif File.directory?(path)
+    files = Dir::glob("#{path}/**/*.#{file_type}")
+    files.each do |file|
+      File.open(file, "r") do |f|
+        f.each { |l| data.push(l.chomp) }
+      end
+    end
+  end
+  data
+end
+
+def load_libraries
+  en_dict = load_data_from_files(DICTIONARY_PATH)
+  keywords = load_data_from_files(PROG_KEYWORDS_PATH)
+  cv_words = load_data_from_files(COMPUTER_VOCABULARY_PATH)
+  private_names = load_data_from_files(PRIVATE_NAMES_PATH)
+  white_list = load_data_from_files(WHITE_LIST_PATH)
   [en_dict, keywords, cv_words, private_names, white_list]
 end
 
-def main()
+def process_arguments
+  target_files = []
+  show_help_and_exit if ARGV.empty?
+
+  if ARGV.include? (OPTIONS[:type])
+    index = ARGV.index(OPTIONS[:type])
+    show_help_and_exit ERROR_MESSAGE[:filetype_not_exist] unless FILETYPE.keys.map(&:to_s).include? (ARGV[index+1])
+    @file_type = ARGV[index+1]
+  end
+
+  ARGV.each_with_index do |argument, index|
+    case argument
+    when OPTIONS[:update]
+      @update_white_list_flag = true
+    when OPTIONS[:type]
+      next
+    else
+      if File.file?(argument)
+        target_files += Dir[argument]
+      elsif File.directory?(argument)
+        target_files += Dir::glob("#{argument}/**/*.#{@file_type}")
+      else
+        next if FILETYPE.keys.map(&:to_s).include? (argument)
+        show_help_and_exit "#{ERROR_MESSAGE[:param_not_exist]}#{argument}"
+      end
+    end
+  end
+  show_help_and_exit ERROR_MESSAGE[:no_file] if target_files.empty?
+
+  target_files
+end
+
+def main
   found_counter = 0
   @update_white_list_flag = false
   @file_type = FILETYPE[:ruby]
   @log = Logger.new(LOG_PATH)
 
-  case ARGV.size
-  when 1
-      target = ARGV.first
-  when 2
-      show_help_and_exit if ARGV.first != OPTIONS[:update]
-      target = ARGV.last
-      @update_white_list_flag = true
-  else
-      show_help_and_exit
-  end
-
-  if File.file?(target)
-      target_files = Dir[target]
-  elsif File.directory?(target)
-      target_files = Dir::glob("#{target}/**/*.#{@file_type}")
-  else
-      show_help_and_exit
-  end
+  target_files = process_arguments
 
   # Start
   puts "Running...\n"
