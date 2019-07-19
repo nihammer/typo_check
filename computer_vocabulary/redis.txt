@@ -1,0 +1,7 @@
+lpush
+lset
+lrange
+ltrim
+llen
+hlen
+lname

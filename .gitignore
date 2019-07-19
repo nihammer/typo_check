@@ -2,3 +2,5 @@ log/*
 !log/.gitkeep
 
 dictionaries/words_alpha.txt
+
+white_list/user_defined_words.txt

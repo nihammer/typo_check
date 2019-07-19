@@ -1,0 +1,11 @@
+iphone
+ipad
+kddi
+vodafone
+willcom
+aws
+google
+bigquery
+facebook
+gcs
+redmine

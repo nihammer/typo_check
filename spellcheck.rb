@@ -5,7 +5,7 @@ require 'logger'
 # https://github.com/dwyl/english-words
 DICTIONARY_PATH = "./dictionaries/words_alpha.txt"
 
-WHITE_LIST_PATH = "./white_list/words.txt"
+WHITE_LIST_PATH = "./white_list"
 PRIVATE_NAMES_PATH = "./private_names/names.txt"
 COMPUTER_VOCABULARY_PATH = "./computer_vocabulary"
 PROG_KEYWORDS_PATH = "./programming_keywords/rails.txt"
@@ -24,6 +24,14 @@ FILETYPE = {
   :php => 'php',
   :html => 'html',
   :plaintext => 'txt'
+}
+
+LIB_DICRECTORY_NAME = {
+  :ruby => '\gem',
+  :rails => '\gem',
+  :javascript => '\node_modules',
+  :cakephp => '\vendor',
+  :laravel => '\vendor'
 }
 
 ERROR_MESSAGE = {
@@ -47,7 +55,13 @@ def update_keyword_file(keywords)
   @log.info "Updated now words to #{PROG_KEYWORDS_PATH}!"
 end
 
+# Scan and create white list
+# from library of a language/framework
+def scan_lib
+end
+
 def spell_check(file_path, keywords, cv_words, private_names, white_list, cached_words, en_dict)
+  wrong_words = []
   found_counter = 0
   line_counter = 0
   @log.info "\n\n==> Checking file: #{file_path}"
@@ -61,11 +75,16 @@ def spell_check(file_path, keywords, cv_words, private_names, white_list, cached
       next if cv_words.include? (word)
       next if private_names.include? (word)
       next if white_list.include? (word)
+      if wrong_words.include? (word)
+        found_counter += 1
+        next
+      end
       if en_dict.include? (word)
         cached_words.push(word)
         next
       else
         found_counter += 1
+        wrong_words.push(word)
         keywords.push(word) if @update_white_list_flag
         @log.info "Found wrong word in #{line_counter}: #{original_word}"
       end
@@ -74,7 +93,7 @@ def spell_check(file_path, keywords, cv_words, private_names, white_list, cached
   found_counter
 end
 
-def show_help_and_exit(message)
+def show_help_and_exit(message=nil)
   puts "\nError: #{message}\n\n\n" if message
   puts "SOURCE CODE SPELL CHECK TOOL\n"
   puts "Usage: ruby spellcheck.rb [OPTION] [FILE NAME/ DIRECTORY NAME]\n"
