@@ -7,3 +7,8 @@ Options:
 --type:Specify the target file extension
        Default file extension is ruby
 ```
+
+### Try to run
+```
+ruby spellcheck.rb --type ruby test/test_cases.rb
+```

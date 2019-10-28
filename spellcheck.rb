@@ -23,7 +23,8 @@ FILETYPE = {
   :typescript => 'ts',
   :php => 'php',
   :html => 'html',
-  :plaintext => 'txt'
+  :plaintext => 'txt',
+  :graphql => 'graphql'
 }
 
 LIB_DICRECTORY_NAME = {
@@ -55,42 +56,84 @@ def update_keyword_file(keywords)
   @log.info "Updated now words to #{PROG_KEYWORDS_PATH}!"
 end
 
+#TODO
 # Scan and create white list
 # from library of a language/framework
 def scan_lib
 end
 
-def spell_check(file_path, keywords, cv_words, private_names, white_list, cached_words, en_dict)
-  wrong_words = []
-  found_counter = 0
+#TODO
+# combinedlowercasecheck(default:don't need to check now)
+def combined_lower_case_check(combined_word)
+  false
+end
+
+#TODO
+# PascalCaseCheck(default:don't need to check now)
+def pascal_case_check(combined_word)
+  false
+end
+
+#TODO
+# camelCaseCheck(default:don't need to check now)
+def camel_case_check(combined_word)
+  false
+end
+
+# Return False if found any NEW wrong word
+def check_spell_combination_word(word)
+  return true if camel_case_check(word)
+  return true if pascal_case_check(word)
+  return true if combined_lower_case_check(word)
+  false
+end
+
+# Return False if found any NEW wrong word
+def check_spell_of_the_word(original_word, wrong_words_found=[])
+  word = original_word.downcase
+  # Check from cache data
+  return true if @cached_words.include? (word)
+  return true if @keywords.include? (word)
+  return true if @cv_words.include? (word)
+  return true if @private_names.include? (word)
+  return true if @white_list.include? (word)
+  if wrong_words_found.include? (word)
+    @found_counter += 1
+    return true
+  end
+
+  # Check from dictionary files
+  if @en_dict.include? (word)
+    @cached_words.push(word)
+    return true
+  end
+
+  return true if check_spell_combination_word(original_word)
+
+  false
+end
+
+def spell_check(file_path)
+  wrong_words_found_in_file = []
   line_counter = 0
   @log.info "\n\n==> Checking file: #{file_path}"
   File.readlines(file_path).each do |line|
     line.chomp!
     line_counter += 1
-    line.scan(/([A-Z][a-z]+|[a-zA-Z]{2,})/).flatten.each do |original_word|
-      word = original_word.downcase
-      next if cached_words.include? (word)
-      next if keywords.include? (word)
-      next if cv_words.include? (word)
-      next if private_names.include? (word)
-      next if white_list.include? (word)
-      if wrong_words.include? (word)
-        found_counter += 1
-        next
-      end
-      if en_dict.include? (word)
-        cached_words.push(word)
-        next
-      else
-        found_counter += 1
-        wrong_words.push(word)
-        keywords.push(word) if @update_white_list_flag
-        @log.info "Found wrong word in #{line_counter}: #{original_word}"
-      end
+    # line.scan(/([A-Z][a-z]+|[a-zA-Z]{2,})/).flatten.each do |original_word|
+    line.scan(/(A?[A-Z][a-z]{1,}|[a-z]{1,}|[A-Z]{1,})/).flatten.each do |original_word|
+      # For case: "ABeautifulDay"
+      original_word[0] = '' if original_word =~ /A[A-Z][a-z]{1,}/
+
+      next if check_spell_of_the_word(original_word, wrong_words_found_in_file)
+
+      # Found wrong word
+      @found_counter += 1
+      wrong_words_found_in_file.push(original_word.downcase)
+      @keywords.push(original_word.downcase) if @update_white_list_flag
+      @log.info "Found wrong word in line #{line_counter}: #{original_word}"
     end
   end
-  found_counter
 end
 
 def show_help_and_exit(message=nil)
@@ -164,7 +207,7 @@ def process_arguments
 end
 
 def main
-  found_counter = 0
+  @found_counter = 0
   @update_white_list_flag = false
   @file_type = FILETYPE[:ruby]
   @log = Logger.new(LOG_PATH)
@@ -173,17 +216,17 @@ def main
 
   # Start
   puts "Running...\n"
-  en_dict, keywords, cv_words, private_names, white_list = load_libraries
-  cached_words = []
+  @en_dict, @keywords, @cv_words, @private_names, @white_list = load_libraries
+  @cached_words = []
   checked_file_count = 0
   number_of_target_file = target_files.size
   target_files.each do |file|
-    found_counter += spell_check(file, keywords, cv_words, private_names, white_list, cached_words, en_dict)
+    spell_check(file)
     checked_file_count += 1
     progress_bar(checked_file_count, number_of_target_file)
   end
-  update_keyword_file(keywords) if @update_white_list_flag
-  puts "\nFound #{found_counter} wrong words!\n"
+  update_keyword_file(@keywords) if @update_white_list_flag
+  puts "\nFound #{@found_counter} wrong words!\n"
   puts "Open file #{LOG_PATH} to confirm!\n"
 end
 main
