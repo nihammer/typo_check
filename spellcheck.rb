@@ -116,13 +116,12 @@ end
 def spell_check(file_path)
   wrong_words_found_in_file = []
   line_counter = 0
-  @log.info "\n\n==> Checking file: #{file_path}"
   File.readlines(file_path).each do |line|
     line.chomp!
     line_counter += 1
     # line.scan(/([A-Z][a-z]+|[a-zA-Z]{2,})/).flatten.each do |original_word|
     line.scan(/(A?[A-Z][a-z]{1,}|[a-z]{1,}|[A-Z]{1,})/).flatten.each do |original_word|
-      # For case: "ABeautifulDay"
+      # For case: "ABeautifulDay" => "BeautifulDay"
       original_word[0] = '' if original_word =~ /A[A-Z][a-z]{1,}/
 
       next if check_spell_of_the_word(original_word, wrong_words_found_in_file)
@@ -130,6 +129,7 @@ def spell_check(file_path)
       # Found wrong word
       @found_counter += 1
       wrong_words_found_in_file.push(original_word.downcase)
+      @log.info "\n\n==> Checking file: #{file_path}" if wrong_words_found_in_file.size == 1
       @keywords.push(original_word.downcase) if @update_white_list_flag
       @log.info "Found wrong word in line #{line_counter}: #{original_word}"
     end
